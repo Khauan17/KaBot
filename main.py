@@ -225,8 +225,9 @@ async def on_message(message):
     await bot.process_commands(message)
 
 # Comandos Slash
-@bot.tree.command(name="memoria", description="Ver as lembranças recentes do KaBot")
-async def memoria_slash(interaction: discord.Interaction, quantidade: int = 5):
+@bot.tree.command(name="memoria", description="📚 Ver as lembranças recentes que o KaBot guardou")
+@discord.app_commands.describe(quantidade="Número de lembranças para mostrar (1-10)")
+async def memoria_slash(interaction: discord.Interaction, quantidade: discord.app_commands.Range[int, 1, 10] = 5):
     """Mostrar resumo da memória de longo prazo"""
     await interaction.response.defer()
     
@@ -258,13 +259,13 @@ async def memoria_slash(interaction: discord.Interaction, quantidade: int = 5):
         print(f"Erro no comando /memoria: {e}")
         await interaction.followup.send("❌ Erro ao buscar memórias. Tente novamente!")
 
-@bot.tree.command(name="noticias", description="Buscar notícias frescas manualmente")
+@bot.tree.command(name="noticias", description="📰 Buscar notícias frescas e interessantes")
 async def noticias_slash(interaction: discord.Interaction):
     """Buscar notícias manualmente"""
     await interaction.response.send_message("🔍 Buscando notícias frescas...")
     await kabot.post_curated_news(interaction.channel)
 
-@bot.tree.command(name="ping", description="Verificar latência do bot")
+@bot.tree.command(name="ping", description="🏓 Verificar se o KaBot está respondendo bem")
 async def ping_slash(interaction: discord.Interaction):
     """Verificar latência do bot"""
     latency = round(bot.latency * 1000)
@@ -275,7 +276,7 @@ async def ping_slash(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="ajuda", description="Mostrar comandos disponíveis")
+@bot.tree.command(name="ajuda", description="❓ Ver todos os comandos disponíveis do KaBot")
 async def ajuda_slash(interaction: discord.Interaction):
     """Mostrar comandos disponíveis"""
     embed = discord.Embed(
@@ -285,11 +286,12 @@ async def ajuda_slash(interaction: discord.Interaction):
     )
     
     commands_list = [
-        ("/memoria [quantidade]", "Ver minhas lembranças do servidor"),
-        ("/noticias", "Buscar notícias frescas"),
-        ("/ping", "Verificar minha latência"),
-        ("/ajuda", "Mostrar esta mensagem"),
-        ("/nasa", "Buscar notícias interessantes da NASA")
+        ("📚 /memoria [quantidade]", "Ver minhas lembranças do servidor"),
+        ("📰 /noticias", "Buscar notícias frescas"),
+        ("🏓 /ping", "Verificar minha latência"),
+        ("❓ /ajuda", "Mostrar esta mensagem"),
+        ("🚀 /nasa", "Buscar notícias interessantes da NASA"),
+        ("🎲 /curiosidade", "Receber uma curiosidade aleatória")
     ]
     
     for command, description in commands_list:
@@ -298,8 +300,7 @@ async def ajuda_slash(interaction: discord.Interaction):
     embed.set_footer(text="KaBot - Seu assistente inteligente e curioso!")
     await interaction.response.send_message(embed=embed)
 
-# Comando slash para NASA
-@bot.tree.command(name="nasa", description="Buscar uma notícia interessante da NASA")
+@bot.tree.command(name="nasa", description="🚀 Descobrir algo incrível sobre o espaço")
 async def nasa_slash(interaction: discord.Interaction):
     """Comando slash para buscar notícias da NASA"""
     await interaction.response.defer()
@@ -327,6 +328,33 @@ async def nasa_slash(interaction: discord.Interaction):
     except Exception as e:
         print(f"Erro no comando /nasa: {e}")
         await interaction.followup.send("❌ Ocorreu um erro ao buscar as notícias. Tente novamente!")
+
+@bot.tree.command(name="curiosidade", description="🎲 Receber uma curiosidade interessante e aleatória")
+async def curiosidade_slash(interaction: discord.Interaction):
+    """Comando para compartilhar curiosidades"""
+    curiosidades = [
+        "🐙 Os polvos têm três corações e sangue azul!",
+        "🌍 Um dia em Vênus (243 dias terrestres) é mais longo que um ano em Vênus (225 dias terrestres)!",
+        "🧠 Seu cérebro usa cerca de 20% de toda a energia do seu corpo!",
+        "🐝 As abelhas podem reconhecer rostos humanos!",
+        "🌊 Conhecemos menos de 5% dos nossos oceanos!",
+        "⚡ Um raio é 5 vezes mais quente que a superfície do Sol!",
+        "🦈 Tubarões existem há mais tempo que as árvores!",
+        "🌙 A Lua está se afastando da Terra cerca de 3,8 cm por ano!",
+        "🐧 Pinguins podem pular até 3 metros de altura!",
+        "💎 Chove diamantes em Netuno e Urano!"
+    ]
+    
+    curiosidade = random.choice(curiosidades)
+    
+    embed = discord.Embed(
+        title="🎲 Curiosidade do KaBot!",
+        description=curiosidade,
+        color=0xf39c12
+    )
+    
+    embed.set_footer(text="Que incrível, não é? 🤓")
+    await interaction.response.send_message(embed=embed)
 
 @tasks.loop(hours=3)
 async def news_radar():
