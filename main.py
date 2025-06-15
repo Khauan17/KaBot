@@ -201,6 +201,13 @@ async def on_ready():
     print(f'{bot.user} está online!')
     print(f'KaBot conectado em {len(bot.guilds)} servidor(s)')
     
+    # Sincronizar comandos slash
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ {len(synced)} comando(s) slash sincronizado(s)")
+    except Exception as e:
+        print(f"❌ Erro ao sincronizar comandos: {e}")
+    
     # Iniciar tarefas em segundo plano
     news_radar.start()
     print("Radar de Informações ativado!")
@@ -274,7 +281,8 @@ async def help_command(ctx):
         ("!ka memoria", "Ver minhas lembranças do servidor"),
         ("!ka noticias", "Buscar notícias frescas"),
         ("!ka ping", "Verificar minha latência"),
-        ("!ka ajuda", "Mostrar esta mensagem")
+        ("!ka ajuda", "Mostrar esta mensagem"),
+        ("/nasa", "Buscar notícias da NASA (comando slash)")
     ]
     
     for command, description in commands_list:
@@ -282,6 +290,36 @@ async def help_command(ctx):
     
     embed.set_footer(text="KaBot - Seu assistente inteligente e curioso!")
     await ctx.send(embed=embed)
+
+# Comando slash para NASA
+@bot.tree.command(name="nasa", description="Buscar uma notícia interessante da NASA")
+async def nasa_slash(interaction: discord.Interaction):
+    """Comando slash para buscar notícias da NASA"""
+    await interaction.response.defer()
+    
+    try:
+        news = await kabot.fetch_nasa_news()
+        
+        if news:
+            embed = discord.Embed(
+                title=f"🚀 {news['title']}",
+                description=news['summary'],
+                color=0x1f8b4c,
+                timestamp=datetime.now()
+            )
+            
+            embed.set_footer(text=f"Fonte: {news['source']} | KaBot")
+            
+            if 'image_url' in news and news['image_url']:
+                embed.set_image(url=news['image_url'])
+            
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send("❌ Não consegui buscar notícias da NASA no momento. Tente novamente mais tarde!")
+            
+    except Exception as e:
+        print(f"Erro no comando /nasa: {e}")
+        await interaction.followup.send("❌ Ocorreu um erro ao buscar as notícias. Tente novamente!")
 
 @tasks.loop(hours=3)
 async def news_radar():
