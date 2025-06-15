@@ -499,6 +499,24 @@ def get_server_config(guild_id):
     return server_configs[guild_id]
 
 @bot.event
+async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    """Tratamento global de erros para comandos slash"""
+    if isinstance(error, discord.app_commands.CommandInvokeError):
+        if isinstance(error.original, discord.NotFound):
+            print(f"Interação expirou para o comando: {interaction.command.name if interaction.command else 'desconhecido'}")
+            return
+    
+    print(f"Erro no comando {interaction.command.name if interaction.command else 'desconhecido'}: {error}")
+    
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message("❌ Ocorreu um erro inesperado. Tente novamente!", ephemeral=True)
+        else:
+            await interaction.followup.send("❌ Ocorreu um erro inesperado. Tente novamente!", ephemeral=True)
+    except:
+        pass  # Se não conseguir enviar erro, apenas ignore
+
+@bot.event
 async def on_ready():
     print(f'{bot.user} está online!')
     print(f'KaBot conectado em {len(bot.guilds)} servidor(s)')
@@ -817,15 +835,18 @@ async def roleta_slash(interaction: discord.Interaction):
 @bot.tree.command(name="sorteio", description="🎉 Sortear pessoas aleatórias do servidor")
 @discord.app_commands.describe(quantidade="Quantas pessoas sortear (máximo 10)")
 async def sorteio_slash(interaction: discord.Interaction, quantidade: discord.app_commands.Range[int, 1, 10] = 1):
-    """Comando de sorteio simplificado"""
+    """Comando de sorteio com tratamento de erro melhorado"""
     import random
     
     try:
+        # Responder imediatamente para evitar timeout
+        await interaction.response.defer()
+        
         # Pegar todos os membros do servidor que não são bots
         members = [member for member in interaction.guild.members if not member.bot]
         
         if not members:
-            await interaction.response.send_message("❌ Nenhum membro encontrado no servidor!", ephemeral=True)
+            await interaction.followup.send("❌ Nenhum membro encontrado no servidor!", ephemeral=True)
             return
         
         # Se a quantidade for maior que o número de membros
@@ -854,11 +875,26 @@ async def sorteio_slash(interaction: discord.Interaction, quantidade: discord.ap
         )
         
         embed.set_footer(text="Sorteio realizado pelo KaBot | Criado por Kazinho")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
         
+    except discord.NotFound:
+        # Interação não encontrada - não fazer nada
+        print("Interação expirou ou não foi encontrada")
+    except discord.InteractionResponded:
+        # Interação já foi respondida - tentar usar followup
+        try:
+            await interaction.followup.send("❌ Erro ao realizar sorteio - interação já respondida!", ephemeral=True)
+        except:
+            print("Não foi possível enviar mensagem de erro")
     except Exception as e:
         print(f"Erro no sorteio: {e}")
-        await interaction.response.send_message("❌ Erro ao realizar sorteio!", ephemeral=True)
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Erro ao realizar sorteio!", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Erro ao realizar sorteio!", ephemeral=True)
+        except:
+            print("Não foi possível enviar mensagem de erro")
 
 @bot.tree.command(name="traduzir", description="🌍 Traduzir texto para português")
 @discord.app_commands.describe(texto="Texto que você quer traduzir para português")
@@ -916,8 +952,12 @@ async def traduzir_slash(interaction: discord.Interaction, texto: str):
 
 @bot.tree.command(name="quiz", description="🧠 Iniciar um quiz de conhecimentos gerais")
 async def quiz_slash(interaction: discord.Interaction):
-    """Comando para quiz de conhecimentos"""
-    perguntas = [
+    """Comando para quiz de conhecimentos com tratamento melhorado"""
+    try:
+        # Responder imediatamente para evitar timeout
+        await interaction.response.defer()
+        
+        perguntas = [
         {
             "pergunta": "Qual é o planeta mais próximo do Sol?",
             "opcoes": ["A) Vênus", "B) Mercúrio", "C) Terra", "D) Marte"],
@@ -980,7 +1020,7 @@ async def quiz_slash(interaction: discord.Interaction):
     
     embed.set_footer(text="Responda com A, B, C ou D! Você tem 30 segundos.")
     
-    await interaction.response.send_message(embed=embed)
+    await interaction.followup.send(embed=embed)
     
     # Aguardar resposta do usuário
     def check(m):
@@ -1011,6 +1051,18 @@ async def quiz_slash(interaction: discord.Interaction):
             color=0xffaa00
         )
         await interaction.channel.send(embed=timeout_embed)
+        
+    except discord.NotFound:
+        print("Interação do quiz expirou")
+    except Exception as e:
+        print(f"Erro no comando quiz: {e}")
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Erro ao carregar quiz!", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Erro ao carregar quiz!", ephemeral=True)
+        except:
+            print("Não foi possível enviar mensagem de erro do quiz")
 
 # COMANDOS ADMINISTRATIVOS (APENAS PARA KAZINHO)
 KAZINHO_ID = 857228143478571029
