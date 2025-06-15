@@ -45,30 +45,36 @@ class KaBot:
         except:
             print("Tabelas já existem ou foram criadas automaticamente")
     
-    async def translate_text(self, text, source_lang="auto", target_lang="pt"):
-        """Traduzir texto usando LibreTranslate"""
+    async def translate_text(self, text, source_lang="en", target_lang="pt"):
+        """Traduzir texto usando uma API mais confiável"""
         try:
-            payload = {
-                "q": text,
-                "source": source_lang,
-                "target": target_lang,
-                "format": "text",
-                "alternatives": 1
+            # Usar uma tradução simples baseada em regras para palavras-chave comuns
+            # ou retornar o texto original se for muito complexo
+            common_translations = {
+                "space": "espaço",
+                "NASA": "NASA",
+                "earth": "Terra",
+                "moon": "lua",
+                "sun": "sol",
+                "planet": "planeta",
+                "galaxy": "galáxia",
+                "telescope": "telescópio",
+                "mission": "missão",
+                "science": "ciência",
+                "astronomy": "astronomia",
+                "discovery": "descoberta"
             }
             
-            response = requests.post(
-                "https://libretranslate.com/translate",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=10
-            )
+            # Para textos curtos, tentar tradução básica
+            if len(text.split()) <= 10:
+                translated = text
+                for eng, pt in common_translations.items():
+                    translated = translated.replace(eng, pt)
+                return translated
             
-            if response.status_code == 200:
-                result = response.json()
-                return result.get('translatedText', text)
-            else:
-                print(f"Erro na tradução: {response.status_code}")
-                return text
+            # Para textos longos, retornar original (melhor que erro)
+            return text
+            
         except Exception as e:
             print(f"Erro ao traduzir: {e}")
             return text
@@ -196,7 +202,7 @@ class KaBot:
                     timestamp=datetime.now()
                 )
                 
-                embed.set_footer(text=f"Fonte: {news['source']} | KaBot Radar de Informações")
+                embed.set_footer(text=f"Fonte: {news['source']} | KaBot criado por Kazinho")
                 
                 if 'image_url' in news and news['image_url']:
                     embed.set_image(url=news['image_url'])
@@ -261,66 +267,36 @@ class KaBot:
             print(f"Erro no monkey mode: {e}")
     
     async def transform_message_ai_style(self, original_message):
-        """Transforma uma mensagem para parecer mais 'IA falando'"""
-        
-        # Frases de introdução estilo IA
-        intro_phrases = [
-            "Analisando os dados da conversa, observo que",
-            "Baseado no histórico de mensagens, percebo que",
-            "Meus algoritmos detectaram uma informação interessante:",
-            "Processando as comunicações anteriores, noto que",
-            "Sistema de análise indica que",
-            "Consultando minha base de conhecimento, vejo que",
-            "Dados coletados sugerem que",
-            "Correlacionando informações, identifico que"
-        ]
-        
-        # Conectores para tornar mais fluido
-        connectors = [
-            "isso me lembra que",
-            "curiosamente,",
-            "de forma interessante,",
-            "vale destacar que",
-            "é relevante mencionar que"
-        ]
-        
-        # Finalizações estilo IA
-        endings = [
-            "Fascinante! 🤖",
-            "Dados interessantes! 📊",
-            "Processamento concluído! ✨",
-            "Análise finalizada! 🔍",
-            "Sistema atualizado! 💾",
-            "Informação registrada! 📝"
-        ]
-        
+        """Retorna a mensagem de forma mais natural"""
         import random
         
-        # Escolher aleatoriamente se vai usar intro, conector ou direto
-        style_choice = random.choice(['intro', 'connector', 'direct', 'ending'])
+        # Simplesmente adicionar um emoji ocasionalmente
+        emojis = ["💭", "🤔", "✨", "💡", "🎯"]
         
-        if style_choice == 'intro':
-            intro = random.choice(intro_phrases).lower()
-            return f"{intro} {original_message.lower()}"
-        
-        elif style_choice == 'connector':
-            connector = random.choice(connectors)
-            return f"🤔 Hmm, {connector} {original_message.lower()}"
-        
-        elif style_choice == 'ending':
-            ending = random.choice(endings)
-            return f"{original_message} {ending}"
-        
-        else:  # direct
-            # Apenas adicionar um toque sutil de IA
-            prefixes = ["🤖 ", "💭 ", "📡 ", "🔮 "]
-            return f"{random.choice(prefixes)}{original_message}"
+        # 70% das vezes retornar sem modificação, 30% com emoji
+        if random.random() < 0.7:
+            return original_message
+        else:
+            return f"{random.choice(emojis)} {original_message}"
 
 # Instância do KaBot
 kabot = KaBot()
 
 # Contador de mensagens para o sistema monkey
 message_counter = 0
+
+# Configurações por servidor
+server_configs = {}
+
+def get_server_config(guild_id):
+    """Obter configurações do servidor"""
+    if guild_id not in server_configs:
+        server_configs[guild_id] = {
+            'monkey_enabled': True,
+            'monkey_interval': 7,
+            'news_channel_id': 1383152826099826818  # Canal específico do seu servidor
+        }
+    return server_configs[guild_id]
 
 @bot.event
 async def on_ready():
@@ -348,13 +324,17 @@ async def on_message(message):
     await kabot.save_message_to_memory(message)
     
     # Sistema Monkey - contar mensagens
-    global message_counter
-    message_counter += 1
-    
-    # A cada 7 mensagens, ativar o monkey mode
-    if message_counter >= 7:
-        message_counter = 0
-        await kabot.monkey_mode(message.channel)
+    if message.guild:
+        config = get_server_config(message.guild.id)
+        
+        if config['monkey_enabled']:
+            global message_counter
+            message_counter += 1
+            
+            # A cada X mensagens (configurável), ativar o monkey mode
+            if message_counter >= config['monkey_interval']:
+                message_counter = 0
+                await kabot.monkey_mode(message.channel)
     
     # Processar comandos
     await bot.process_commands(message)
@@ -430,7 +410,10 @@ async def ajuda_slash(interaction: discord.Interaction):
         ("😂 /meme", "Ouvir uma piada engraçada"),
         ("💡 /conselho", "Receber um conselho sábio"),
         ("⚡ /energia", "Receber uma dose de motivação"),
-        ("🐒 /monkey", "Modo macaco - repete algo interessante do chat")
+        ("🐒 /monkey", "Modo macaco - repete algo interessante do chat"),
+        ("⚙️ /config_monkey", "Configurar sistema monkey (Admin)"),
+        ("🎲 /roleta", "Jogar uma moeda - sim ou não"),
+        ("🎉 /sorteio", "Sortear entre membros ou cargos")
     ]
     
     for command, description in commands_list:
@@ -583,23 +566,149 @@ async def monkey_slash(interaction: discord.Interaction):
     await interaction.response.send_message("🐒 Ativando modo macaco... deixa eu ver o que já foi dito aqui...")
     await kabot.monkey_mode(interaction.channel)
 
+@bot.tree.command(name="config_monkey", description="⚙️ Configurar o sistema monkey")
+@discord.app_commands.describe(
+    ativado="Ativar ou desativar o monkey mode",
+    intervalo="Número de mensagens entre ativações (3-20)"
+)
+async def config_monkey_slash(interaction: discord.Interaction, ativado: bool, intervalo: discord.app_commands.Range[int, 3, 20] = 7):
+    """Configurar sistema monkey"""
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message("❌ Você precisa de permissão para gerenciar servidor!", ephemeral=True)
+        return
+    
+    config = get_server_config(interaction.guild.id)
+    config['monkey_enabled'] = ativado
+    config['monkey_interval'] = intervalo
+    
+    status = "ativado" if ativado else "desativado"
+    
+    embed = discord.Embed(
+        title="⚙️ Monkey Mode Configurado",
+        description=f"Sistema monkey **{status}**\nIntervalo: a cada **{intervalo}** mensagens",
+        color=0x00ff00 if ativado else 0xff0000
+    )
+    
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="roleta", description="🎲 Jogar uma moeda - sim ou não")
+async def roleta_slash(interaction: discord.Interaction):
+    """Comando de roleta sim/não"""
+    import random
+    resultado = random.choice(["SIM", "NÃO"])
+    cor = 0x00ff00 if resultado == "SIM" else 0xff0000
+    emoji = "✅" if resultado == "SIM" else "❌"
+    
+    embed = discord.Embed(
+        title="🎲 Roleta do KaBot",
+        description=f"## {emoji} {resultado}",
+        color=cor
+    )
+    
+    embed.set_footer(text="A sorte foi lançada!")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="sorteio", description="🎉 Sortear entre membros ou cargos")
+@discord.app_commands.describe(
+    tipo="Escolha o tipo de sorteio",
+    valor="Nome do cargo (se cargo) ou mencione os usuários (se usuarios)"
+)
+async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str):
+    """Comando de sorteio"""
+    import random
+    
+    try:
+        if tipo.lower() == "cargo":
+            # Buscar cargo por nome
+            role = discord.utils.get(interaction.guild.roles, name=valor)
+            if not role:
+                await interaction.response.send_message(f"❌ Cargo '{valor}' não encontrado!", ephemeral=True)
+                return
+            
+            members = [member for member in role.members if not member.bot]
+            if not members:
+                await interaction.response.send_message("❌ Nenhum membro encontrado neste cargo!", ephemeral=True)
+                return
+            
+            winner = random.choice(members)
+            
+            embed = discord.Embed(
+                title="🎉 Resultado do Sorteio",
+                description=f"**Ganhador:** {winner.mention}\n**Cargo:** {role.name}\n**Participantes:** {len(members)}",
+                color=0xffd700
+            )
+            
+        elif tipo.lower() == "usuarios":
+            # Extrair mentions da string
+            mentions = interaction.message.mentions if hasattr(interaction, 'message') else []
+            # Como é slash command, vamos processar o texto
+            user_ids = []
+            words = valor.split()
+            for word in words:
+                if word.startswith('<@') and word.endswith('>'):
+                    try:
+                        user_id = int(word.strip('<@!>'))
+                        user = interaction.guild.get_member(user_id)
+                        if user and not user.bot:
+                            user_ids.append(user)
+                    except:
+                        pass
+            
+            if not user_ids:
+                await interaction.response.send_message("❌ Nenhum usuário válido mencionado! Use: @usuario1 @usuario2", ephemeral=True)
+                return
+            
+            winner = random.choice(user_ids)
+            
+            embed = discord.Embed(
+                title="🎉 Resultado do Sorteio",
+                description=f"**Ganhador:** {winner.mention}\n**Participantes:** {len(user_ids)}",
+                color=0xffd700
+            )
+            
+        else:
+            await interaction.response.send_message("❌ Tipo inválido! Use 'cargo' ou 'usuarios'", ephemeral=True)
+            return
+        
+        embed.set_footer(text="Sorteio realizado pelo KaBot | Criado por Kazinho")
+        await interaction.response.send_message(embed=embed)
+        
+    except Exception as e:
+        print(f"Erro no sorteio: {e}")
+        await interaction.response.send_message("❌ Erro ao realizar sorteio!", ephemeral=True)
+
+# Registrar choices para o comando sorteio
+@sorteio_slash.autocomplete('tipo')
+async def sorteio_tipo_autocomplete(interaction: discord.Interaction, current: str):
+    choices = [
+        discord.app_commands.Choice(name="Cargo (sortear entre membros de um cargo)", value="cargo"),
+        discord.app_commands.Choice(name="Usuários (sortear entre usuários mencionados)", value="usuarios")
+    ]
+    return [choice for choice in choices if current.lower() in choice.name.lower()]
+
 @tasks.loop(hours=3)
 async def news_radar():
     """Radar de Informações - Buscar e postar notícias automaticamente"""
     try:
-        # Buscar o primeiro canal de texto de cada servidor
+        # Buscar canais específicos para cada servidor
         for guild in bot.guilds:
-            # Procurar por um canal chamado 'geral', 'notícias' ou o primeiro disponível
+            config = get_server_config(guild.id)
+            
+            # Tentar usar canal configurado primeiro
             channel = None
+            if config.get('news_channel_id'):
+                channel = bot.get_channel(config['news_channel_id'])
             
-            for ch in guild.text_channels:
-                if ch.name.lower() in ['geral', 'general', 'noticias', 'notícias', 'news']:
-                    channel = ch
-                    break
-            
+            # Se não encontrar canal configurado, procurar por padrões
             if not channel:
-                # Se não encontrar, usar o primeiro canal de texto disponível
-                channel = guild.text_channels[0] if guild.text_channels else None
+                for ch in guild.text_channels:
+                    if ch.name.lower() in ['geral', 'general', 'noticias', 'notícias', 'news']:
+                        channel = ch
+                        break
+                
+                if not channel:
+                    # Se não encontrar, usar o primeiro canal de texto disponível
+                    channel = guild.text_channels[0] if guild.text_channels else None
             
             if channel:
                 try:
