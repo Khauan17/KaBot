@@ -116,9 +116,14 @@ class KaBot:
                 explanation = data.get('explanation', '')
                 image_url = data.get('url', '')
                 
-                # Traduzir título e explicação
-                title_pt = await self.translate_text(title)
-                explanation_pt = await self.translate_text(explanation)
+                # Traduzir título e explicação para português
+                try:
+                    title_pt = await self.translate_text(title, "en", "pt")
+                    explanation_pt = await self.translate_text(explanation, "en", "pt")
+                except:
+                    # Se falhar a tradução, usar texto original
+                    title_pt = title
+                    explanation_pt = explanation
                 
                 # Criar resumo breve (primeiras 200 caracteres)
                 summary = explanation_pt[:200] + "..." if len(explanation_pt) > 200 else explanation_pt
@@ -127,7 +132,8 @@ class KaBot:
                     'title': title_pt,
                     'summary': summary,
                     'image_url': image_url,
-                    'source': 'NASA'
+                    'source': 'NASA',
+                    'date': data.get('date', datetime.now().strftime('%Y-%m-%d'))
                 }
         except Exception as e:
             print(f"Erro ao buscar notícias da NASA: {e}")
@@ -136,23 +142,31 @@ class KaBot:
     async def fetch_general_news(self):
         """Buscar notícias gerais"""
         try:
-            url = f"https://newsapi.org/v2/top-headlines?country=br&pageSize=1&apiKey={NEWS_API_KEY}"
+            # Alternar entre diferentes categorias para variedade
+            categorias = ['science', 'technology', 'health']
+            categoria = random.choice(categorias)
+            
+            url = f"https://newsapi.org/v2/top-headlines?country=br&category={categoria}&pageSize=5&apiKey={NEWS_API_KEY}"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
                 if data['articles']:
-                    article = data['articles'][0]
+                    # Pegar um artigo aleatório dos resultados
+                    article = random.choice(data['articles'][:3])
                     
                     title = article.get('title', 'Notícia')
                     description = article.get('description', '')
                     url_link = article.get('url', '')
+                    image = article.get('urlToImage', '')
                     
                     return {
-                        'title': title,
-                        'summary': description,
+                        'title': f"📰 {title}",
+                        'summary': description if description else "Clique no link para ler mais!",
                         'url': url_link,
-                        'source': 'Notícias Gerais'
+                        'image_url': image,
+                        'source': f'Notícias de {categoria.title()}',
+                        'published': article.get('publishedAt', '')
                     }
         except Exception as e:
             print(f"Erro ao buscar notícias gerais: {e}")
@@ -292,7 +306,10 @@ async def ajuda_slash(interaction: discord.Interaction):
         ("🏓 /ping", "Verificar minha latência"),
         ("❓ /ajuda", "Mostrar esta mensagem"),
         ("🚀 /nasa", "Buscar notícias interessantes da NASA"),
-        ("🎲 /curiosidade", "Receber uma curiosidade aleatória")
+        ("🎲 /curiosidade", "Receber uma curiosidade aleatória"),
+        ("😂 /meme", "Ouvir uma piada engraçada"),
+        ("💡 /conselho", "Receber um conselho sábio"),
+        ("⚡ /energia", "Receber uma dose de motivação")
     ]
     
     for command, description in commands_list:
@@ -343,7 +360,12 @@ async def curiosidade_slash(interaction: discord.Interaction):
         "🦈 Tubarões existem há mais tempo que as árvores!",
         "🌙 A Lua está se afastando da Terra cerca de 3,8 cm por ano!",
         "🐧 Pinguins podem pular até 3 metros de altura!",
-        "💎 Chove diamantes em Netuno e Urano!"
+        "💎 Chove diamantes em Netuno e Urano!",
+        "🦒 As girafas só dormem 30 minutos por dia!",
+        "🍯 O mel nunca estraga - foram encontrados potes de mel comestível em tumbas egípcias!",
+        "🐸 Existe uma rã que pode sobreviver sendo congelada sólida!",
+        "🌋 Existem mais vulcões em Vênus do que em qualquer outro planeta!",
+        "🧬 Você compartilha 50% do seu DNA com uma banana!"
     ]
     
     curiosidade = random.choice(curiosidades)
@@ -355,6 +377,83 @@ async def curiosidade_slash(interaction: discord.Interaction):
     )
     
     embed.set_footer(text="Que incrível, não é? 🤓")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="meme", description="😂 Receber um meme aleatório ou uma piada")
+async def meme_slash(interaction: discord.Interaction):
+    """Comando para piadas e memes"""
+    piadas = [
+        "Por que os pássaros voam para o sul no inverno? 🐦\nPorque é longe demais para andar! 😂",
+        "O que o pato disse para a pata? 🦆\nVem quá! 😄",
+        "Por que o livro de matemática estava triste? 📚\nPorque tinha muitos problemas! 😅",
+        "O que a impressora falou para a outra impressora? 🖨️\nEssa folha é sua ou é impressão minha? 😂",
+        "Por que o café foi para a terapia? ☕\nPorque estava muito coado! 😄",
+        "O que o oceano disse para a praia? 🌊\nNada, só acenou! 👋",
+        "Por que o programador quebrou a perna? 💻\nPorque esqueceu de colocar um break! 😂",
+        "O que é que fica maior quanto mais você tira? 🕳️\nUm buraco! 😄"
+    ]
+    
+    piada = random.choice(piadas)
+    
+    embed = discord.Embed(
+        title="😂 Hora do Meme!",
+        description=piada,
+        color=0xff6b6b
+    )
+    
+    embed.set_footer(text="Espero que tenha dado uma risada! 😄")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="conselho", description="💡 Receber um conselho sábio e motivacional")
+async def conselho_slash(interaction: discord.Interaction):
+    """Comando para conselhos motivacionais"""
+    conselhos = [
+        "💪 A única forma de fazer um excelente trabalho é amar o que você faz!",
+        "🌱 Todo grande carvalho já foi uma pequena bolota que não desistiu!",
+        "✨ Você é mais forte do que imagina e mais capaz do que acredita!",
+        "🎯 O sucesso é a soma de pequenos esforços repetidos dia após dia!",
+        "🌟 Não espere por oportunidades, crie-as!",
+        "🚀 O único limite para o que você pode alcançar é o que você acredita ser possível!",
+        "💎 Pressão faz diamantes - você está se tornando mais forte!",
+        "🌈 Depois da tempestade sempre vem o arco-íris!",
+        "📈 Cada erro é uma lição, cada obstáculo é uma oportunidade de crescer!",
+        "🔥 Acredite em si mesmo e você já terá percorrido metade do caminho!"
+    ]
+    
+    conselho = random.choice(conselhos)
+    
+    embed = discord.Embed(
+        title="💡 Conselho do KaBot",
+        description=conselho,
+        color=0x00d4aa
+    )
+    
+    embed.set_footer(text="Você consegue! 💪")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="energia", description="⚡ Receber uma dose de energia e motivação")
+async def energia_slash(interaction: discord.Interaction):
+    """Comando para dar energia e motivação"""
+    mensagens_energia = [
+        "⚡ VOCÊ É INCRÍVEL! Hoje é o seu dia de brilhar! ✨",
+        "🔥 ENERGIA MÁXIMA! Você tem tudo que precisa para conquistar seus objetivos! 🎯",
+        "💥 BOOM! Hora de mostrar do que você é capaz! Vai com tudo! 🚀",
+        "⭐ VOCÊ É UMA ESTRELA! Brilhe como nunca e inspire todos ao seu redor! 🌟",
+        "💪 FORÇA TOTAL! Nada pode te parar quando você decide ir atrás do que quer! 🎊",
+        "🌈 POSITIVIDADE NO MÁXIMO! Você transforma qualquer dia em algo especial! ✨",
+        "🎵 RITMO DE VITÓRIA! Dance através dos desafios e celebre cada conquista! 🎉",
+        "🦄 MAGIA PURA! Você tem o poder de tornar o impossível possível! ✨"
+    ]
+    
+    mensagem = random.choice(mensagens_energia)
+    
+    embed = discord.Embed(
+        title="⚡ BOMBA DE ENERGIA!",
+        description=mensagem,
+        color=0xff9f43
+    )
+    
+    embed.set_footer(text="Agora vai lá e arrasa! 🔥")
     await interaction.response.send_message(embed=embed)
 
 @tasks.loop(hours=3)
