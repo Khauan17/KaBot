@@ -15,10 +15,19 @@ run = ["python3", "main.py"]
 deploymentTarget = "cloudrun"
 
 [workflows]
-runButton = "Executar KaBot"
+runButton = "Run KaBot"
 
 [[workflows.workflow]]
 name = "Executar KaBot"
+author = 22307992
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+
+[[workflows.workflow]]
+name = "Run KaBot"
 author = 22307992
 mode = "sequential"
 
