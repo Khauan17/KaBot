@@ -48,8 +48,17 @@ class KaBot:
     async def translate_text(self, text, source_lang="auto", target_lang="pt"):
         """Traduzir texto usando LibreTranslate API"""
         try:
-            # Se o texto for muito curto ou já em português, retornar original
+            # Se o texto for muito curto, retornar original
             if len(text.strip()) < 5:
+                return text
+            
+            # Detectar se o texto já está em português
+            portuguese_words = ['o', 'a', 'de', 'do', 'da', 'em', 'um', 'uma', 'para', 'com', 'não', 'no', 'na', 'por', 'mais', 'que', 'se', 'como', 'este', 'esta', 'são', 'é', 'foi', 'tem', 'ter', 'ser', 'estar', 'fazer', 'sobre', 'entre']
+            words = text.lower().split()
+            portuguese_count = sum(1 for word in words if word in portuguese_words)
+            
+            # Se mais de 20% das palavras são portuguesas, não traduzir
+            if len(words) > 0 and (portuguese_count / len(words)) > 0.2:
                 return text
             
             # Tentar usar LibreTranslate
@@ -59,21 +68,24 @@ class KaBot:
             url = "https://libretranslate.com/translate"
             data = {
                 "q": text,
-                "source": source_lang,
-                "target": target_lang,
+                "source": "auto",
+                "target": "pt",
                 "format": "text"
             }
             
             headers = {"Content-Type": "application/json"}
             
-            response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+            response = requests.post(url, data=json.dumps(data), headers=headers, timeout=15)
             
             if response.status_code == 200:
                 result = response.json()
                 translated_text = result.get("translatedText", text)
+                # Se a tradução for igual ao original, usar fallback
+                if translated_text.lower() == text.lower():
+                    return self.fallback_translate(text)
                 return translated_text
             else:
-                print(f"Erro na API de tradução: {response.status_code}")
+                print(f"Erro na API de tradução: {response.status_code} - {response.text}")
                 return self.fallback_translate(text)
                 
         except Exception as e:
@@ -472,7 +484,7 @@ async def ajuda_slash(interaction: discord.Interaction):
         ("🐒 /monkey", "Modo macaco - repete algo interessante do chat"),
         ("⚙️ /config_monkey", "Configurar sistema monkey (Admin)"),
         ("🎲 /roleta", "Jogar uma moeda - sim ou não"),
-        ("🎉 /sorteio", "Sortear entre membros ou cargos"),
+        ("🎉 /sorteio [quantidade]", "Sortear pessoas aleatórias do servidor"),
         ("🌍 /traduzir", "Traduzir texto para português"),
         ("🧠 /quiz", "Iniciar um quiz de conhecimentos gerais"),
         ("👑 /assistindo", "Alterar status do bot (Kazinho only)"),
@@ -672,58 +684,45 @@ async def roleta_slash(interaction: discord.Interaction):
     embed.set_footer(text="A sorte foi lançada!")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="sorteio", description="🎉 Sortear entre membros ou cargos")
-async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str):
-    """Comando de sorteio"""
+@bot.tree.command(name="sorteio", description="🎉 Sortear pessoas aleatórias do servidor")
+@discord.app_commands.describe(quantidade="Quantas pessoas sortear (máximo 10)")
+async def sorteio_slash(interaction: discord.Interaction, quantidade: discord.app_commands.Range[int, 1, 10] = 1):
+    """Comando de sorteio simplificado"""
     import random
     
     try:
-        if tipo == "cargo":
-            # Buscar cargo por nome
-            role = discord.utils.get(interaction.guild.roles, name=valor)
-            if not role:
-                await interaction.response.send_message(f"❌ Cargo '{valor}' não encontrado!", ephemeral=True)
-                return
-            
-            members = [member for member in role.members if not member.bot]
-            if not members:
-                await interaction.response.send_message("❌ Nenhum membro encontrado neste cargo!", ephemeral=True)
-                return
-            
-            winner = random.choice(members)
-            
-            embed = discord.Embed(
-                title="🎉 Resultado do Sorteio",
-                description=f"**Ganhador:** {winner.mention}\n**Cargo:** {role.name}\n**Participantes:** {len(members)}",
-                color=0xffd700
-            )
-            
-        elif tipo == "usuarios":
-            # Extrair mentions da string
-            user_ids = []
-            words = valor.split()
-            for word in words:
-                if word.startswith('<@') and word.endswith('>'):
-                    try:
-                        user_id = int(word.strip('<@!>'))
-                        user = interaction.guild.get_member(user_id)
-                        if user and not user.bot:
-                            user_ids.append(user)
-                    except:
-                        pass
-            
-            if not user_ids:
-                await interaction.response.send_message("❌ Nenhum usuário válido mencionado! Use: @usuario1 @usuario2", ephemeral=True)
-                return
-            
-            winner = random.choice(user_ids)
-            
-            embed = discord.Embed(
-                title="🎉 Resultado do Sorteio",
-                description=f"**Ganhador:** {winner.mention}\n**Participantes:** {len(user_ids)}",
-                color=0xffd700
-            )
-            
+        # Pegar todos os membros do servidor que não são bots
+        members = [member for member in interaction.guild.members if not member.bot]
+        
+        if not members:
+            await interaction.response.send_message("❌ Nenhum membro encontrado no servidor!", ephemeral=True)
+            return
+        
+        # Se a quantidade for maior que o número de membros
+        if quantidade > len(members):
+            quantidade = len(members)
+        
+        # Sortear membros únicos
+        winners = random.sample(members, quantidade)
+        
+        embed = discord.Embed(
+            title="🎉 Resultado do Sorteio",
+            color=0xffd700,
+            timestamp=datetime.now()
+        )
+        
+        if quantidade == 1:
+            embed.description = f"**🏆 Ganhador:** {winners[0].mention}"
+        else:
+            ganhadores_text = "\n".join([f"🏆 **{i+1}º lugar:** {winner.mention}" for i, winner in enumerate(winners)])
+            embed.description = f"**Ganhadores sorteados:**\n\n{ganhadores_text}"
+        
+        embed.add_field(
+            name="📊 Informações",
+            value=f"**Total de participantes:** {len(members)}\n**Pessoas sorteadas:** {quantidade}",
+            inline=False
+        )
+        
         embed.set_footer(text="Sorteio realizado pelo KaBot | Criado por Kazinho")
         await interaction.response.send_message(embed=embed)
         
@@ -731,45 +730,59 @@ async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str)
         print(f"Erro no sorteio: {e}")
         await interaction.response.send_message("❌ Erro ao realizar sorteio!", ephemeral=True)
 
-@sorteio_slash.autocomplete('tipo')
-async def sorteio_tipo_autocomplete(interaction: discord.Interaction, current: str):
-    choices = [
-        discord.app_commands.Choice(name="Cargo (sortear entre membros de um cargo)", value="cargo"),
-        discord.app_commands.Choice(name="Usuários (sortear entre usuários mencionados)", value="usuarios")
-    ]
-    return [choice for choice in choices if current.lower() in choice.name.lower()]
-
 @bot.tree.command(name="traduzir", description="🌍 Traduzir texto para português")
 @discord.app_commands.describe(texto="Texto que você quer traduzir para português")
 async def traduzir_slash(interaction: discord.Interaction, texto: str):
     """Comando para traduzir texto"""
     try:
-        # Usar a função de tradução do KaBot
-        texto_traduzido = await kabot.translate_text(texto, "auto", "pt")
+        await interaction.response.defer()
+        
+        # Forçar tradução para português, removendo a detecção automática
+        import requests
+        import json
+        
+        url = "https://libretranslate.com/translate"
+        data = {
+            "q": texto,
+            "source": "auto",
+            "target": "pt",
+            "format": "text"
+        }
+        
+        headers = {"Content-Type": "application/json"}
+        
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=15)
+        
+        if response.status_code == 200:
+            result = response.json()
+            texto_traduzido = result.get("translatedText", texto)
+        else:
+            # Se falhar, usar tradução de fallback
+            texto_traduzido = await kabot.translate_text(texto, "auto", "pt")
         
         embed = discord.Embed(
-            title="🌍 Tradução",
+            title="🌍 Tradução para Português",
             color=0x3498db
         )
         
         embed.add_field(
             name="📝 Texto Original",
-            value=texto[:500] + "..." if len(texto) > 500 else texto,
+            value=f"```{texto[:500] + '...' if len(texto) > 500 else texto}```",
             inline=False
         )
         
         embed.add_field(
             name="🇧🇷 Tradução",
-            value=texto_traduzido[:500] + "..." if len(texto_traduzido) > 500 else texto_traduzido,
+            value=f"```{texto_traduzido[:500] + '...' if len(texto_traduzido) > 500 else texto_traduzido}```",
             inline=False
         )
         
         embed.set_footer(text="Tradução feita pelo KaBot")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
         
     except Exception as e:
         print(f"Erro no comando traduzir: {e}")
-        await interaction.response.send_message("❌ Erro ao traduzir texto!", ephemeral=True)
+        await interaction.followup.send("❌ Erro ao traduzir texto! Tente novamente.", ephemeral=True)
 
 @bot.tree.command(name="quiz", description="🧠 Iniciar um quiz de conhecimentos gerais")
 async def quiz_slash(interaction: discord.Interaction):
