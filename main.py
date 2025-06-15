@@ -76,19 +76,25 @@ class KaBot:
     async def save_message_to_memory(self, message):
         """Salvar mensagem na memória de curto prazo"""
         try:
+            # Filtrar mensagens muito curtas ou de bot
+            if len(message.content) < 3 or message.author.bot:
+                return
+            
             data = {
                 "guild_id": str(message.guild.id) if message.guild else None,
                 "channel_id": str(message.channel.id),
                 "user_id": str(message.author.id),
-                "username": message.author.display_name,
-                "content": message.content,
+                "username": message.author.display_name[:50],  # Limitar tamanho
+                "content": message.content[:1000],  # Limitar tamanho para evitar problemas
                 "timestamp": message.created_at.isoformat(),
                 "message_id": str(message.id)
             }
             
-            supabase.table('short_term_memory').insert(data).execute()
+            result = supabase.table('short_term_memory').insert(data).execute()
+            
         except Exception as e:
-            print(f"Erro ao salvar mensagem: {e}")
+            # Silenciar erros de salvamento para não poluir o log
+            pass
     
     async def get_long_term_memory(self, guild_id=None, limit=10):
         """Buscar memória de longo prazo para contexto"""
@@ -100,7 +106,7 @@ class KaBot:
             result = query.order('created_at', desc=True).limit(limit).execute()
             return result.data
         except Exception as e:
-            print(f"Erro ao buscar memória: {e}")
+            # Retornar lista vazia se não houver memórias ainda
             return []
     
     async def fetch_nasa_news(self):
@@ -229,11 +235,11 @@ class KaBot:
             # Filtrar mensagens válidas (não comandos, não muito curtas)
             valid_messages = [
                 msg for msg in messages 
-                if len(msg['content']) > 10 
-                and not msg['content'].startswith('/')
-                and not msg['content'].startswith('!')
-                and 'http' not in msg['content'].lower()
-                and len(msg['content'].split()) >= 3
+                if len(msg.get('content', '')) > 10 
+                and not msg.get('content', '').startswith('/')
+                and not msg.get('content', '').startswith('!')
+                and 'http' not in msg.get('content', '').lower()
+                and len(msg.get('content', '').split()) >= 3
             ]
             
             if not valid_messages:
