@@ -207,9 +207,114 @@ class KaBot:
             
         except Exception as e:
             print(f"Erro ao postar notícia: {e}")
+    
+    async def monkey_mode(self, channel):
+        """Modo Monkey - repete uma mensagem aleatória de forma natural"""
+        try:
+            # Buscar mensagens recentes do banco
+            query = supabase.table('short_term_memory').select('*')
+            if hasattr(channel, 'guild') and channel.guild:
+                query = query.eq('guild_id', str(channel.guild.id))
+            
+            # Pegar mensagens dos últimos 3 dias que não sejam comandos
+            from datetime import datetime, timedelta
+            tres_dias_atras = (datetime.now() - timedelta(days=3)).isoformat()
+            
+            result = query.gte('timestamp', tres_dias_atras).order('timestamp', desc=True).limit(50).execute()
+            messages = result.data
+            
+            if not messages:
+                return
+            
+            # Filtrar mensagens válidas (não comandos, não muito curtas)
+            valid_messages = [
+                msg for msg in messages 
+                if len(msg['content']) > 10 
+                and not msg['content'].startswith('/')
+                and not msg['content'].startswith('!')
+                and 'http' not in msg['content'].lower()
+                and len(msg['content'].split()) >= 3
+            ]
+            
+            if not valid_messages:
+                return
+            
+            # Escolher uma mensagem aleatória
+            import random
+            chosen_message = random.choice(valid_messages)
+            original_content = chosen_message['content']
+            
+            # Transformar a mensagem para parecer mais natural/IA
+            transformed = await self.transform_message_ai_style(original_content)
+            
+            # Enviar com um delay pequeno para parecer mais natural
+            await asyncio.sleep(random.uniform(1, 3))
+            await channel.send(f"🐒 {transformed}")
+            
+        except Exception as e:
+            print(f"Erro no monkey mode: {e}")
+    
+    async def transform_message_ai_style(self, original_message):
+        """Transforma uma mensagem para parecer mais 'IA falando'"""
+        
+        # Frases de introdução estilo IA
+        intro_phrases = [
+            "Analisando os dados da conversa, observo que",
+            "Baseado no histórico de mensagens, percebo que",
+            "Meus algoritmos detectaram uma informação interessante:",
+            "Processando as comunicações anteriores, noto que",
+            "Sistema de análise indica que",
+            "Consultando minha base de conhecimento, vejo que",
+            "Dados coletados sugerem que",
+            "Correlacionando informações, identifico que"
+        ]
+        
+        # Conectores para tornar mais fluido
+        connectors = [
+            "isso me lembra que",
+            "curiosamente,",
+            "de forma interessante,",
+            "vale destacar que",
+            "é relevante mencionar que"
+        ]
+        
+        # Finalizações estilo IA
+        endings = [
+            "Fascinante! 🤖",
+            "Dados interessantes! 📊",
+            "Processamento concluído! ✨",
+            "Análise finalizada! 🔍",
+            "Sistema atualizado! 💾",
+            "Informação registrada! 📝"
+        ]
+        
+        import random
+        
+        # Escolher aleatoriamente se vai usar intro, conector ou direto
+        style_choice = random.choice(['intro', 'connector', 'direct', 'ending'])
+        
+        if style_choice == 'intro':
+            intro = random.choice(intro_phrases).lower()
+            return f"{intro} {original_message.lower()}"
+        
+        elif style_choice == 'connector':
+            connector = random.choice(connectors)
+            return f"🤔 Hmm, {connector} {original_message.lower()}"
+        
+        elif style_choice == 'ending':
+            ending = random.choice(endings)
+            return f"{original_message} {ending}"
+        
+        else:  # direct
+            # Apenas adicionar um toque sutil de IA
+            prefixes = ["🤖 ", "💭 ", "📡 ", "🔮 "]
+            return f"{random.choice(prefixes)}{original_message}"
 
 # Instância do KaBot
 kabot = KaBot()
+
+# Contador de mensagens para o sistema monkey
+message_counter = 0
 
 @bot.event
 async def on_ready():
@@ -235,6 +340,15 @@ async def on_message(message):
     
     # Salvar mensagem na memória de curto prazo
     await kabot.save_message_to_memory(message)
+    
+    # Sistema Monkey - contar mensagens
+    global message_counter
+    message_counter += 1
+    
+    # A cada 7 mensagens, ativar o monkey mode
+    if message_counter >= 7:
+        message_counter = 0
+        await kabot.monkey_mode(message.channel)
     
     # Processar comandos
     await bot.process_commands(message)
@@ -309,7 +423,8 @@ async def ajuda_slash(interaction: discord.Interaction):
         ("🎲 /curiosidade", "Receber uma curiosidade aleatória"),
         ("😂 /meme", "Ouvir uma piada engraçada"),
         ("💡 /conselho", "Receber um conselho sábio"),
-        ("⚡ /energia", "Receber uma dose de motivação")
+        ("⚡ /energia", "Receber uma dose de motivação"),
+        ("🐒 /monkey", "Modo macaco - repete algo interessante do chat")
     ]
     
     for command, description in commands_list:
@@ -455,6 +570,12 @@ async def energia_slash(interaction: discord.Interaction):
     
     embed.set_footer(text="Agora vai lá e arrasa! 🔥")
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="monkey", description="🐒 Ativar modo macaco - repete algo interessante que alguém disse")
+async def monkey_slash(interaction: discord.Interaction):
+    """Comando manual para ativar o monkey mode"""
+    await interaction.response.send_message("🐒 Ativando modo macaco... deixa eu ver o que já foi dito aqui...")
+    await kabot.monkey_mode(interaction.channel)
 
 @tasks.loop(hours=3)
 async def news_radar():
