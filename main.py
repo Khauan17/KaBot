@@ -46,99 +46,120 @@ class KaBot:
             print("Tabelas já existem ou foram criadas automaticamente")
     
     async def translate_text(self, text, source_lang="auto", target_lang="pt"):
-        """Traduzir texto usando LibreTranslate API"""
+        """Traduzir texto usando LibreTranslate API com melhor detecção"""
         try:
             # Se o texto for muito curto, retornar original
             if len(text.strip()) < 5:
                 return text
             
-            # Detectar se o texto já está em português
-            portuguese_words = ['o', 'a', 'de', 'do', 'da', 'em', 'um', 'uma', 'para', 'com', 'não', 'no', 'na', 'por', 'mais', 'que', 'se', 'como', 'este', 'esta', 'são', 'é', 'foi', 'tem', 'ter', 'ser', 'estar', 'fazer', 'sobre', 'entre']
+            # Detectar se o texto já está em português (critério mais rigoroso)
+            portuguese_words = ['o', 'a', 'de', 'do', 'da', 'em', 'um', 'uma', 'para', 'com', 'não', 'no', 'na', 'por', 'mais', 'que', 'se', 'como', 'este', 'esta', 'são', 'é', 'foi', 'tem', 'ter', 'ser', 'estar', 'fazer', 'sobre', 'entre', 'mas', 'ou', 'quando', 'onde', 'aqui', 'ali', 'hoje', 'ontem', 'amanhã']
             words = text.lower().split()
             portuguese_count = sum(1 for word in words if word in portuguese_words)
             
-            # Se mais de 20% das palavras são portuguesas, não traduzir
-            if len(words) > 0 and (portuguese_count / len(words)) > 0.2:
+            # Se mais de 30% das palavras são portuguesas, não traduzir
+            if len(words) > 0 and (portuguese_count / len(words)) > 0.3:
                 return text
             
-            # Tentar usar LibreTranslate
-            import requests
-            import json
+            # Dividir texto em partes menores para melhor tradução
+            sentences = text.split('. ')
+            translated_sentences = []
             
-            url = "https://libretranslate.com/translate"
-            data = {
-                "q": text,
-                "source": "auto",
-                "target": "pt",
-                "format": "text"
-            }
+            for sentence in sentences:
+                if len(sentence.strip()) < 5:
+                    translated_sentences.append(sentence)
+                    continue
+                    
+                # Tentar usar LibreTranslate
+                import requests
+                import json
+                
+                url = "https://libretranslate.com/translate"
+                data = {
+                    "q": sentence.strip(),
+                    "source": "auto",
+                    "target": "pt",
+                    "format": "text"
+                }
+                
+                headers = {"Content-Type": "application/json"}
+                
+                try:
+                    response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        translated_sentence = result.get("translatedText", sentence)
+                        translated_sentences.append(translated_sentence)
+                    else:
+                        # Se falhar, usar fallback para esta sentença
+                        translated_sentences.append(self.fallback_translate(sentence))
+                except:
+                    # Se falhar, usar fallback para esta sentença
+                    translated_sentences.append(self.fallback_translate(sentence))
+                
+                # Pequeno delay para não sobrecarregar a API
+                await asyncio.sleep(0.1)
             
-            headers = {"Content-Type": "application/json"}
-            
-            response = requests.post(url, data=json.dumps(data), headers=headers, timeout=15)
-            
-            if response.status_code == 200:
-                result = response.json()
-                translated_text = result.get("translatedText", text)
-                # Se a tradução for igual ao original, usar fallback
-                if translated_text.lower() == text.lower():
-                    return self.fallback_translate(text)
-                return translated_text
-            else:
-                print(f"Erro na API de tradução: {response.status_code} - {response.text}")
-                return self.fallback_translate(text)
+            return '. '.join(translated_sentences)
                 
         except Exception as e:
             print(f"Erro ao traduzir: {e}")
             return self.fallback_translate(text)
     
     def fallback_translate(self, text):
-        """Tradução de fallback usando palavras-chave comuns"""
+        """Tradução de fallback usando palavras-chave comuns expandida"""
         common_translations = {
-            "space": "espaço",
-            "NASA": "NASA",
-            "earth": "Terra",
-            "moon": "lua",
-            "sun": "sol",
-            "planet": "planeta",
-            "galaxy": "galáxia",
-            "telescope": "telescópio",
-            "mission": "missão",
-            "science": "ciência",
-            "astronomy": "astronomia",
-            "discovery": "descoberta",
-            "asteroid": "asteroide",
-            "comet": "cometa",
-            "satellite": "satélite",
-            "rocket": "foguete",
-            "orbit": "órbita",
-            "spacecraft": "espaçonave",
-            "universe": "universo",
-            "stellar": "estelar",
-            "solar": "solar",
-            "lunar": "lunar",
-            "cosmic": "cósmico",
-            "radiation": "radiação",
-            "atmosphere": "atmosfera",
-            "the": "o/a",
-            "and": "e",
-            "of": "de",
-            "in": "em",
-            "to": "para",
-            "is": "é",
-            "was": "foi",
-            "are": "são",
-            "were": "eram",
-            "this": "este/esta",
-            "that": "aquele/aquela",
-            "with": "com",
-            "from": "de",
-            "by": "por",
-            "an": "um/uma",
-            "as": "como",
-            "for": "para",
-            "on": "em",
-            "at": "em"
+            # Espaço e astronomia
+            "space": "espaço", "NASA": "NASA", "earth": "Terra", "moon": "lua", "sun": "sol",
+            "planet": "planeta", "galaxy": "galáxia", "telescope": "telescópio", "mission": "missão",
+            "science": "ciência", "astronomy": "astronomia", "discovery": "descoberta",
+            "asteroid": "asteroide", "comet": "cometa", "satellite": "satélite", "rocket": "foguete",
+            "orbit": "órbita", "spacecraft": "espaçonave", "universe": "universo", "stellar": "estelar",
+            "solar": "solar", "lunar": "lunar", "cosmic": "cósmico", "radiation": "radiação",
+            "atmosphere": "atmosfera", "mars": "Marte", "venus": "Vênus", "jupiter": "Júpiter",
+            "saturn": "Saturno", "mercury": "Mercúrio", "neptune": "Netuno", "uranus": "Urano",
+            "star": "estrela", "constellation": "constelação", "nebula": "nebulosa",
+            
+            # Tecnologia e ciência
+            "technology": "tecnologia", "research": "pesquisa", "study": "estudo", "data": "dados",
+            "image": "imagem", "photo": "foto", "picture": "imagem", "video": "vídeo",
+            "computer": "computador", "artificial": "artificial", "intelligence": "inteligência",
+            "robot": "robô", "machine": "máquina", "algorithm": "algoritmo", "software": "software",
+            "hardware": "hardware", "internet": "internet", "network": "rede", "digital": "digital",
+            
+            # Natureza e meio ambiente
+            "nature": "natureza", "environment": "meio ambiente", "climate": "clima",
+            "weather": "tempo", "ocean": "oceano", "sea": "mar", "river": "rio", "forest": "floresta",
+            "animal": "animal", "plant": "planta", "tree": "árvore", "bird": "pássaro", "fish": "peixe",
+            "water": "água", "air": "ar", "fire": "fogo", "ice": "gelo", "snow": "neve", "rain": "chuva",
+            
+            # Tempo e datas
+            "today": "hoje", "yesterday": "ontem", "tomorrow": "amanhã", "now": "agora",
+            "year": "ano", "month": "mês", "week": "semana", "day": "dia", "hour": "hora",
+            "minute": "minuto", "second": "segundo", "time": "tempo", "date": "data",
+            "morning": "manhã", "afternoon": "tarde", "evening": "noite", "night": "noite",
+            
+            # Palavras básicas
+            "the": "o", "and": "e", "of": "de", "in": "em", "to": "para", "is": "é", "was": "foi",
+            "are": "são", "were": "eram", "be": "ser", "have": "ter", "has": "tem", "had": "tinha",
+            "will": "vai", "would": "seria", "could": "poderia", "should": "deveria", "can": "pode",
+            "this": "este", "that": "aquele", "these": "estes", "those": "aqueles",
+            "with": "com", "from": "de", "by": "por", "at": "em", "on": "em", "up": "para cima",
+            "down": "para baixo", "out": "fora", "off": "desligado", "over": "sobre", "under": "sob",
+            "again": "novamente", "further": "mais", "then": "então", "once": "uma vez",
+            "here": "aqui", "there": "lá", "when": "quando", "where": "onde", "why": "por que",
+            "how": "como", "all": "todos", "any": "qualquer", "both": "ambos", "each": "cada",
+            "few": "poucos", "more": "mais", "most": "mais", "other": "outro", "some": "alguns",
+            "such": "tal", "no": "não", "nor": "nem", "not": "não", "only": "apenas", "own": "próprio",
+            "same": "mesmo", "so": "então", "than": "que", "too": "também", "very": "muito",
+            "just": "apenas", "now": "agora", "new": "novo", "old": "velho", "first": "primeiro",
+            "last": "último", "long": "longo", "great": "grande", "little": "pequeno", "good": "bom",
+            "bad": "ruim", "right": "direito", "left": "esquerdo", "high": "alto", "low": "baixo",
+            "large": "grande", "small": "pequeno", "big": "grande", "young": "jovem", "early": "cedo",
+            "late": "tarde", "public": "público", "private": "privado", "important": "importante",
+            "possible": "possível", "different": "diferente", "similar": "similar", "special": "especial",
+            "amazing": "incrível", "beautiful": "bonito", "interesting": "interessante"
         }
         
         translated = text
@@ -187,7 +208,7 @@ class KaBot:
             return []
     
     async def fetch_nasa_news(self):
-        """Buscar notícias da NASA"""
+        """Buscar notícias da NASA com tradução melhorada"""
         try:
             url = f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}&count=1"
             response = requests.get(url, timeout=10)
@@ -201,35 +222,48 @@ class KaBot:
                 
                 # Traduzir título e explicação para português
                 try:
+                    print(f"Traduzindo título: {title[:50]}...")
                     title_pt = await self.translate_text(title, "en", "pt")
+                    print(f"Título traduzido: {title_pt[:50]}...")
+                    
+                    print(f"Traduzindo explicação: {explanation[:50]}...")
                     explanation_pt = await self.translate_text(explanation, "en", "pt")
-                except:
+                    print(f"Explicação traduzida: {explanation_pt[:50]}...")
+                except Exception as e:
+                    print(f"Erro na tradução: {e}")
                     # Se falhar a tradução, usar texto original
                     title_pt = title
                     explanation_pt = explanation
                 
-                # Criar resumo breve (primeiras 200 caracteres)
-                summary = explanation_pt[:200] + "..." if len(explanation_pt) > 200 else explanation_pt
+                # Criar resumo mais elaborado (primeiras 300 caracteres)
+                summary = explanation_pt[:300] + "..." if len(explanation_pt) > 300 else explanation_pt
                 
                 return {
                     'title': title_pt,
                     'summary': summary,
+                    'full_description': explanation_pt,
                     'image_url': image_url,
-                    'source': 'NASA',
-                    'date': data.get('date', datetime.now().strftime('%Y-%m-%d'))
+                    'source': '🚀 NASA - Administração Nacional da Aeronáutica e Espaço',
+                    'date': data.get('date', datetime.now().strftime('%Y-%m-%d')),
+                    'original_title': title
                 }
         except Exception as e:
             print(f"Erro ao buscar notícias da NASA: {e}")
         return None
     
     async def fetch_general_news(self):
-        """Buscar notícias gerais"""
+        """Buscar notícias gerais com melhor apresentação"""
         try:
             # Alternar entre diferentes categorias para variedade
-            categorias = ['science', 'technology', 'health']
-            categoria = random.choice(categorias)
+            categorias = {
+                'science': '🔬 Ciência',
+                'technology': '💻 Tecnologia', 
+                'health': '🏥 Saúde'
+            }
+            categoria_key = random.choice(list(categorias.keys()))
+            categoria_nome = categorias[categoria_key]
             
-            url = f"https://newsapi.org/v2/top-headlines?country=br&category={categoria}&pageSize=5&apiKey={NEWS_API_KEY}"
+            url = f"https://newsapi.org/v2/top-headlines?country=br&category={categoria_key}&pageSize=5&apiKey={NEWS_API_KEY}"
             response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
@@ -240,53 +274,148 @@ class KaBot:
                     
                     title = article.get('title', 'Notícia')
                     description = article.get('description', '')
+                    content = article.get('content', '')
                     url_link = article.get('url', '')
                     image = article.get('urlToImage', '')
+                    source_name = article.get('source', {}).get('name', 'Fonte desconhecida')
+                    published = article.get('publishedAt', '')
+                    
+                    # Criar resumo melhor usando description e content
+                    summary = description if description else "Clique no link para ler a notícia completa!"
+                    if content and len(content) > len(summary):
+                        # Usar content se for mais descritivo
+                        summary = content.split('[+')[0].strip()  # Remove texto promocional do NewsAPI
+                    
+                    # Limitar tamanho do resumo
+                    if len(summary) > 250:
+                        summary = summary[:250] + "..."
+                    
+                    # Formatar data de publicação
+                    published_formatted = ""
+                    if published:
+                        try:
+                            from datetime import datetime
+                            pub_date = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                            published_formatted = pub_date.strftime('%d/%m/%Y às %H:%M')
+                        except:
+                            published_formatted = published[:10]  # Apenas a data
                     
                     return {
-                        'title': f"📰 {title}",
-                        'summary': description if description else "Clique no link para ler mais!",
+                        'title': title,
+                        'summary': summary,
                         'url': url_link,
                         'image_url': image,
-                        'source': f'Notícias de {categoria.title()}',
-                        'published': article.get('publishedAt', '')
+                        'source': categoria_nome,
+                        'source_name': source_name,
+                        'published': published_formatted,
+                        'category': categoria_nome
                     }
         except Exception as e:
             print(f"Erro ao buscar notícias gerais: {e}")
         return None
     
     async def post_curated_news(self, channel):
-        """Postar notícias curadas no canal"""
+        """Postar notícias curadas no canal com melhor apresentação"""
         try:
             # Alternar entre NASA e notícias gerais
             import random
             if random.choice([True, False]):
                 news = await self.fetch_nasa_news()
+                is_nasa = True
             else:
                 news = await self.fetch_general_news()
+                is_nasa = False
             
             if news:
+                # Cores diferentes para diferentes tipos de notícias
+                if is_nasa:
+                    color = 0x0066cc  # Azul NASA
+                    title_prefix = "🚀"
+                else:
+                    colors = {
+                        '🔬 Ciência': 0x00cc66,
+                        '💻 Tecnologia': 0x6600cc,
+                        '🏥 Saúde': 0xcc0066
+                    }
+                    color = colors.get(news.get('category', ''), 0x1f8b4c)
+                    title_prefix = news.get('category', '📰').split()[0]
+                
                 embed = discord.Embed(
-                    title=f"📰 {news['title']}",
-                    description=news['summary'],
-                    color=0x1f8b4c,
+                    title=f"{title_prefix} {news['title']}",
+                    description=f"**{news['summary']}**",
+                    color=color,
                     timestamp=datetime.now()
                 )
                 
-                embed.set_footer(text=f"Fonte: {news['source']} | KaBot criado por Kazinho")
+                # Adicionar informações específicas baseadas no tipo
+                if is_nasa:
+                    embed.add_field(
+                        name="📅 Data da Imagem/Descoberta",
+                        value=news.get('date', 'Data não disponível'),
+                        inline=True
+                    )
+                    if news.get('original_title'):
+                        embed.add_field(
+                            name="🔤 Título Original",
+                            value=news['original_title'],
+                            inline=True
+                        )
+                else:
+                    if news.get('published'):
+                        embed.add_field(
+                            name="📅 Publicado em",
+                            value=news['published'],
+                            inline=True
+                        )
+                    if news.get('source_name'):
+                        embed.add_field(
+                            name="📰 Fonte",
+                            value=news['source_name'],
+                            inline=True
+                        )
                 
+                # Adicionar tipo de notícia
+                embed.add_field(
+                    name="📊 Categoria",
+                    value=news['source'],
+                    inline=True
+                )
+                
+                # Adicionar imagem se disponível
                 if 'image_url' in news and news['image_url']:
                     embed.set_image(url=news['image_url'])
                 
+                # Adicionar link se disponível
                 if 'url' in news and news['url']:
                     embed.add_field(
-                        name="🔗 Leia mais",
-                        value=f"[Clique aqui para ler a notícia completa]({news['url']})",
+                        name="🔗 Leia a notícia completa",
+                        value=f"[👆 Clique aqui para ler mais detalhes]({news['url']})",
                         inline=False
                     )
                 
-                await channel.send(embed=embed)
-                print(f"Notícia postada: {news['title']}")
+                # Adicionar thumbnail do KaBot
+                if hasattr(channel.guild, 'me') and channel.guild.me.avatar:
+                    embed.set_thumbnail(url=channel.guild.me.avatar.url)
+                
+                # Footer personalizado
+                embed.set_footer(
+                    text="📡 KaBot Radar de Informações | Criado por Kazinho",
+                    icon_url="https://cdn.discordapp.com/emojis/1234567890123456789.png" if hasattr(channel.guild, 'me') and channel.guild.me.avatar else None
+                )
+                
+                # Enviar mensagem com reações
+                message = await channel.send(embed=embed)
+                
+                # Adicionar reações para engajamento
+                await message.add_reaction('👍')  # Gostei
+                await message.add_reaction('🤔')  # Interessante
+                await message.add_reaction('📚')  # Quero saber mais
+                if is_nasa:
+                    await message.add_reaction('🚀')  # Espacial
+                else:
+                    await message.add_reaction('💡')  # Interessante
+                
+                print(f"Notícia postada com sucesso: {news['title'][:50]}...")
             
         except Exception as e:
             print(f"Erro ao postar notícia: {e}")
