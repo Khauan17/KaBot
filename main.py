@@ -261,7 +261,7 @@ class KaBot:
             
             # Enviar com um delay pequeno para parecer mais natural
             await asyncio.sleep(random.uniform(1, 3))
-            await channel.send(f"🐒 {transformed}")
+            await channel.send(transformed)
             
         except Exception as e:
             print(f"Erro no monkey mode: {e}")
@@ -413,7 +413,10 @@ async def ajuda_slash(interaction: discord.Interaction):
         ("🐒 /monkey", "Modo macaco - repete algo interessante do chat"),
         ("⚙️ /config_monkey", "Configurar sistema monkey (Admin)"),
         ("🎲 /roleta", "Jogar uma moeda - sim ou não"),
-        ("🎉 /sorteio", "Sortear entre membros ou cargos")
+        ("🎉 /sorteio", "Sortear entre membros ou cargos"),
+        ("👑 /assistindo", "Alterar status do bot (Kazinho only)"),
+        ("👑 /perfil", "Alterar avatar do bot (Kazinho only)"),
+        ("👑 /mensagem", "Enviar mensagem em canal (Kazinho only)")
     ]
     
     for command, description in commands_list:
@@ -609,16 +612,12 @@ async def roleta_slash(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="sorteio", description="🎉 Sortear entre membros ou cargos")
-@discord.app_commands.describe(
-    tipo="Escolha o tipo de sorteio",
-    valor="Nome do cargo (se cargo) ou mencione os usuários (se usuarios)"
-)
-async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str):
+async def sorteio_slash(interaction: discord.Interaction, tipo: discord.app_commands.Choice[str], valor: str):
     """Comando de sorteio"""
     import random
     
     try:
-        if tipo.lower() == "cargo":
+        if tipo.value == "cargo":
             # Buscar cargo por nome
             role = discord.utils.get(interaction.guild.roles, name=valor)
             if not role:
@@ -638,10 +637,8 @@ async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str)
                 color=0xffd700
             )
             
-        elif tipo.lower() == "usuarios":
+        elif tipo.value == "usuarios":
             # Extrair mentions da string
-            mentions = interaction.message.mentions if hasattr(interaction, 'message') else []
-            # Como é slash command, vamos processar o texto
             user_ids = []
             words = valor.split()
             for word in words:
@@ -666,10 +663,6 @@ async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str)
                 color=0xffd700
             )
             
-        else:
-            await interaction.response.send_message("❌ Tipo inválido! Use 'cargo' ou 'usuarios'", ephemeral=True)
-            return
-        
         embed.set_footer(text="Sorteio realizado pelo KaBot | Criado por Kazinho")
         await interaction.response.send_message(embed=embed)
         
@@ -677,7 +670,6 @@ async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str)
         print(f"Erro no sorteio: {e}")
         await interaction.response.send_message("❌ Erro ao realizar sorteio!", ephemeral=True)
 
-# Registrar choices para o comando sorteio
 @sorteio_slash.autocomplete('tipo')
 async def sorteio_tipo_autocomplete(interaction: discord.Interaction, current: str):
     choices = [
@@ -685,6 +677,104 @@ async def sorteio_tipo_autocomplete(interaction: discord.Interaction, current: s
         discord.app_commands.Choice(name="Usuários (sortear entre usuários mencionados)", value="usuarios")
     ]
     return [choice for choice in choices if current.lower() in choice.name.lower()]
+
+# COMANDOS ADMINISTRATIVOS (APENAS PARA KAZINHO)
+KAZINHO_ID = 857228143478571029
+
+def is_kazinho():
+    """Decorator para verificar se é o Kazinho"""
+    def predicate(interaction: discord.Interaction) -> bool:
+        return interaction.user.id == KAZINHO_ID
+    return discord.app_commands.check(predicate)
+
+@bot.tree.command(name="assistindo", description="👑 [ADMIN] Alterar status 'Assistindo' do bot")
+@discord.app_commands.describe(atividade="O que o bot estará assistindo")
+@is_kazinho()
+async def assistindo_slash(interaction: discord.Interaction, atividade: str):
+    """Comando para alterar o status do bot (apenas Kazinho)"""
+    try:
+        activity = discord.Activity(type=discord.ActivityType.watching, name=atividade)
+        await bot.change_presence(activity=activity)
+        
+        embed = discord.Embed(
+            title="👑 Status Alterado",
+            description=f"Agora estou assistindo: **{atividade}**",
+            color=0x9932cc
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        print(f"Erro ao alterar status: {e}")
+        await interaction.response.send_message("❌ Erro ao alterar status!", ephemeral=True)
+
+@bot.tree.command(name="perfil", description="👑 [ADMIN] Alterar foto de perfil do bot")
+@discord.app_commands.describe(imagem="Anexe a nova imagem de perfil")
+@is_kazinho()
+async def perfil_slash(interaction: discord.Interaction, imagem: discord.Attachment):
+    """Comando para alterar avatar do bot (apenas Kazinho)"""
+    try:
+        if not imagem.content_type.startswith('image/'):
+            await interaction.response.send_message("❌ Por favor, envie apenas arquivos de imagem!", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        # Baixar a imagem
+        image_data = await imagem.read()
+        
+        # Alterar avatar
+        await bot.user.edit(avatar=image_data)
+        
+        embed = discord.Embed(
+            title="👑 Avatar Alterado",
+            description="Foto de perfil atualizada com sucesso!",
+            color=0x9932cc
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        print(f"Erro ao alterar avatar: {e}")
+        await interaction.followup.send("❌ Erro ao alterar avatar! Verifique se a imagem é válida.", ephemeral=True)
+
+@bot.tree.command(name="mensagem", description="👑 [ADMIN] Enviar mensagem para um canal específico")
+@discord.app_commands.describe(
+    canal_id="ID do canal onde enviar a mensagem",
+    mensagem="Conteúdo da mensagem"
+)
+@is_kazinho()
+async def mensagem_slash(interaction: discord.Interaction, canal_id: str, mensagem: str):
+    """Comando para enviar mensagem em canal específico (apenas Kazinho)"""
+    try:
+        # Converter ID para int
+        channel_id = int(canal_id)
+        channel = bot.get_channel(channel_id)
+        
+        if not channel:
+            await interaction.response.send_message("❌ Canal não encontrado!", ephemeral=True)
+            return
+        
+        # Verificar se o bot tem permissão para enviar mensagens
+        if not channel.permissions_for(channel.guild.me).send_messages:
+            await interaction.response.send_message("❌ Não tenho permissão para enviar mensagens neste canal!", ephemeral=True)
+            return
+        
+        # Enviar mensagem
+        await channel.send(mensagem)
+        
+        embed = discord.Embed(
+            title="👑 Mensagem Enviada",
+            description=f"Mensagem enviada para {channel.mention} com sucesso!",
+            color=0x9932cc
+        )
+        embed.add_field(name="Conteúdo", value=mensagem[:100] + "..." if len(mensagem) > 100 else mensagem)
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+    except ValueError:
+        await interaction.response.send_message("❌ ID do canal inválido!", ephemeral=True)
+    except Exception as e:
+        print(f"Erro ao enviar mensagem: {e}")
+        await interaction.response.send_message("❌ Erro ao enviar mensagem!", ephemeral=True)
 
 @tasks.loop(hours=3)
 async def news_radar():
