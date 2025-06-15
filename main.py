@@ -224,41 +224,48 @@ async def on_message(message):
     # Processar comandos
     await bot.process_commands(message)
 
-@bot.command(name='memoria')
-async def check_memory(ctx):
+# Comandos Slash
+@bot.tree.command(name="memoria", description="Ver as lembranças recentes do KaBot")
+async def memoria_slash(interaction: discord.Interaction, quantidade: int = 5):
     """Mostrar resumo da memória de longo prazo"""
-    memories = await kabot.get_long_term_memory(ctx.guild.id if ctx.guild else None, 5)
+    await interaction.response.defer()
     
-    if memories:
-        embed = discord.Embed(
-            title="🧠 Memória do KaBot",
-            description="Aqui estão algumas lembranças recentes:",
-            color=0x3498db
-        )
+    try:
+        memories = await kabot.get_long_term_memory(interaction.guild.id if interaction.guild else None, quantidade)
         
-        for memory in memories:
-            embed.add_field(
-                name=f"📅 {memory.get('date', 'Data desconhecida')}",
-                value=memory.get('summary', 'Sem resumo disponível')[:100] + "...",
-                inline=False
+        if memories:
+            embed = discord.Embed(
+                title="🧠 Memória do KaBot",
+                description="Aqui estão algumas lembranças recentes:",
+                color=0x3498db
             )
-    else:
-        embed = discord.Embed(
-            title="🧠 Memória do KaBot",
-            description="Ainda não tenho lembranças significativas deste servidor.",
-            color=0xe74c3c
-        )
-    
-    await ctx.send(embed=embed)
+            
+            for memory in memories:
+                embed.add_field(
+                    name=f"📅 {memory.get('date', 'Data desconhecida')}",
+                    value=memory.get('summary', 'Sem resumo disponível')[:100] + "...",
+                    inline=False
+                )
+        else:
+            embed = discord.Embed(
+                title="🧠 Memória do KaBot",
+                description="Ainda não tenho lembranças significativas deste servidor.",
+                color=0xe74c3c
+            )
+        
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        print(f"Erro no comando /memoria: {e}")
+        await interaction.followup.send("❌ Erro ao buscar memórias. Tente novamente!")
 
-@bot.command(name='noticias')
-async def manual_news(ctx):
+@bot.tree.command(name="noticias", description="Buscar notícias frescas manualmente")
+async def noticias_slash(interaction: discord.Interaction):
     """Buscar notícias manualmente"""
-    await ctx.send("🔍 Buscando notícias frescas...")
-    await kabot.post_curated_news(ctx.channel)
+    await interaction.response.send_message("🔍 Buscando notícias frescas...")
+    await kabot.post_curated_news(interaction.channel)
 
-@bot.command(name='ping')
-async def ping(ctx):
+@bot.tree.command(name="ping", description="Verificar latência do bot")
+async def ping_slash(interaction: discord.Interaction):
     """Verificar latência do bot"""
     latency = round(bot.latency * 1000)
     embed = discord.Embed(
@@ -266,10 +273,10 @@ async def ping(ctx):
         description=f"Latência: {latency}ms",
         color=0x00ff00
     )
-    await ctx.send(embed=embed)
+    await interaction.response.send_message(embed=embed)
 
-@bot.command(name='ajuda')
-async def help_command(ctx):
+@bot.tree.command(name="ajuda", description="Mostrar comandos disponíveis")
+async def ajuda_slash(interaction: discord.Interaction):
     """Mostrar comandos disponíveis"""
     embed = discord.Embed(
         title="🤖 KaBot - Comandos Disponíveis",
@@ -278,18 +285,18 @@ async def help_command(ctx):
     )
     
     commands_list = [
-        ("!ka memoria", "Ver minhas lembranças do servidor"),
-        ("!ka noticias", "Buscar notícias frescas"),
-        ("!ka ping", "Verificar minha latência"),
-        ("!ka ajuda", "Mostrar esta mensagem"),
-        ("/nasa", "Buscar notícias da NASA (comando slash)")
+        ("/memoria [quantidade]", "Ver minhas lembranças do servidor"),
+        ("/noticias", "Buscar notícias frescas"),
+        ("/ping", "Verificar minha latência"),
+        ("/ajuda", "Mostrar esta mensagem"),
+        ("/nasa", "Buscar notícias interessantes da NASA")
     ]
     
     for command, description in commands_list:
         embed.add_field(name=command, value=description, inline=False)
     
     embed.set_footer(text="KaBot - Seu assistente inteligente e curioso!")
-    await ctx.send(embed=embed)
+    await interaction.response.send_message(embed=embed)
 
 # Comando slash para NASA
 @bot.tree.command(name="nasa", description="Buscar uma notícia interessante da NASA")

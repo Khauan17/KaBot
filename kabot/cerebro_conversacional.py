@@ -81,8 +81,11 @@ class CerebroConversacional:
 • Peça para eu lembrar de coisas passadas
 
 **Comandos disponíveis:**
-• `!ka memoria [quantidade]` - Ver minhas lembranças recentes
-• `!ka status` - Ver status dos meus sistemas
+• `/memoria [quantidade]` - Ver minhas lembranças recentes
+• `/noticias` - Buscar notícias frescas
+• `/ping` - Verificar minha latência
+• `/nasa` - Buscar notícias da NASA
+• `/ajuda` - Ver todos os comandos
 
 **Minhas habilidades:**
 🧠 Lembro de conversas e eventos importantes
