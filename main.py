@@ -45,39 +45,98 @@ class KaBot:
         except:
             print("Tabelas já existem ou foram criadas automaticamente")
     
-    async def translate_text(self, text, source_lang="en", target_lang="pt"):
-        """Traduzir texto usando uma API mais confiável"""
+    async def translate_text(self, text, source_lang="auto", target_lang="pt"):
+        """Traduzir texto usando LibreTranslate API"""
         try:
-            # Usar uma tradução simples baseada em regras para palavras-chave comuns
-            # ou retornar o texto original se for muito complexo
-            common_translations = {
-                "space": "espaço",
-                "NASA": "NASA",
-                "earth": "Terra",
-                "moon": "lua",
-                "sun": "sol",
-                "planet": "planeta",
-                "galaxy": "galáxia",
-                "telescope": "telescópio",
-                "mission": "missão",
-                "science": "ciência",
-                "astronomy": "astronomia",
-                "discovery": "descoberta"
+            # Se o texto for muito curto ou já em português, retornar original
+            if len(text.strip()) < 5:
+                return text
+            
+            # Tentar usar LibreTranslate
+            import requests
+            import json
+            
+            url = "https://libretranslate.com/translate"
+            data = {
+                "q": text,
+                "source": source_lang,
+                "target": target_lang,
+                "format": "text"
             }
             
-            # Para textos curtos, tentar tradução básica
-            if len(text.split()) <= 10:
-                translated = text
-                for eng, pt in common_translations.items():
-                    translated = translated.replace(eng, pt)
-                return translated
+            headers = {"Content-Type": "application/json"}
             
-            # Para textos longos, retornar original (melhor que erro)
-            return text
+            response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
             
+            if response.status_code == 200:
+                result = response.json()
+                translated_text = result.get("translatedText", text)
+                return translated_text
+            else:
+                print(f"Erro na API de tradução: {response.status_code}")
+                return self.fallback_translate(text)
+                
         except Exception as e:
             print(f"Erro ao traduzir: {e}")
-            return text
+            return self.fallback_translate(text)
+    
+    def fallback_translate(self, text):
+        """Tradução de fallback usando palavras-chave comuns"""
+        common_translations = {
+            "space": "espaço",
+            "NASA": "NASA",
+            "earth": "Terra",
+            "moon": "lua",
+            "sun": "sol",
+            "planet": "planeta",
+            "galaxy": "galáxia",
+            "telescope": "telescópio",
+            "mission": "missão",
+            "science": "ciência",
+            "astronomy": "astronomia",
+            "discovery": "descoberta",
+            "asteroid": "asteroide",
+            "comet": "cometa",
+            "satellite": "satélite",
+            "rocket": "foguete",
+            "orbit": "órbita",
+            "spacecraft": "espaçonave",
+            "universe": "universo",
+            "stellar": "estelar",
+            "solar": "solar",
+            "lunar": "lunar",
+            "cosmic": "cósmico",
+            "radiation": "radiação",
+            "atmosphere": "atmosfera",
+            "the": "o/a",
+            "and": "e",
+            "of": "de",
+            "in": "em",
+            "to": "para",
+            "is": "é",
+            "was": "foi",
+            "are": "são",
+            "were": "eram",
+            "this": "este/esta",
+            "that": "aquele/aquela",
+            "with": "com",
+            "from": "de",
+            "by": "por",
+            "an": "um/uma",
+            "as": "como",
+            "for": "para",
+            "on": "em",
+            "at": "em"
+        }
+        
+        translated = text
+        for eng, pt in common_translations.items():
+            # Substituir palavras completas, não partes de palavras
+            import re
+            pattern = r'\b' + re.escape(eng) + r'\b'
+            translated = re.sub(pattern, pt, translated, flags=re.IGNORECASE)
+        
+        return translated
     
     async def save_message_to_memory(self, message):
         """Salvar mensagem na memória de curto prazo"""
@@ -414,6 +473,8 @@ async def ajuda_slash(interaction: discord.Interaction):
         ("⚙️ /config_monkey", "Configurar sistema monkey (Admin)"),
         ("🎲 /roleta", "Jogar uma moeda - sim ou não"),
         ("🎉 /sorteio", "Sortear entre membros ou cargos"),
+        ("🌍 /traduzir", "Traduzir texto para português"),
+        ("🧠 /quiz", "Iniciar um quiz de conhecimentos gerais"),
         ("👑 /assistindo", "Alterar status do bot (Kazinho only)"),
         ("👑 /perfil", "Alterar avatar do bot (Kazinho only)"),
         ("👑 /mensagem", "Enviar mensagem em canal (Kazinho only)")
@@ -612,12 +673,12 @@ async def roleta_slash(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="sorteio", description="🎉 Sortear entre membros ou cargos")
-async def sorteio_slash(interaction: discord.Interaction, tipo: discord.app_commands.Choice[str], valor: str):
+async def sorteio_slash(interaction: discord.Interaction, tipo: str, valor: str):
     """Comando de sorteio"""
     import random
     
     try:
-        if tipo.value == "cargo":
+        if tipo == "cargo":
             # Buscar cargo por nome
             role = discord.utils.get(interaction.guild.roles, name=valor)
             if not role:
@@ -637,7 +698,7 @@ async def sorteio_slash(interaction: discord.Interaction, tipo: discord.app_comm
                 color=0xffd700
             )
             
-        elif tipo.value == "usuarios":
+        elif tipo == "usuarios":
             # Extrair mentions da string
             user_ids = []
             words = valor.split()
@@ -677,6 +738,136 @@ async def sorteio_tipo_autocomplete(interaction: discord.Interaction, current: s
         discord.app_commands.Choice(name="Usuários (sortear entre usuários mencionados)", value="usuarios")
     ]
     return [choice for choice in choices if current.lower() in choice.name.lower()]
+
+@bot.tree.command(name="traduzir", description="🌍 Traduzir texto para português")
+@discord.app_commands.describe(texto="Texto que você quer traduzir para português")
+async def traduzir_slash(interaction: discord.Interaction, texto: str):
+    """Comando para traduzir texto"""
+    try:
+        # Usar a função de tradução do KaBot
+        texto_traduzido = await kabot.translate_text(texto, "auto", "pt")
+        
+        embed = discord.Embed(
+            title="🌍 Tradução",
+            color=0x3498db
+        )
+        
+        embed.add_field(
+            name="📝 Texto Original",
+            value=texto[:500] + "..." if len(texto) > 500 else texto,
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🇧🇷 Tradução",
+            value=texto_traduzido[:500] + "..." if len(texto_traduzido) > 500 else texto_traduzido,
+            inline=False
+        )
+        
+        embed.set_footer(text="Tradução feita pelo KaBot")
+        await interaction.response.send_message(embed=embed)
+        
+    except Exception as e:
+        print(f"Erro no comando traduzir: {e}")
+        await interaction.response.send_message("❌ Erro ao traduzir texto!", ephemeral=True)
+
+@bot.tree.command(name="quiz", description="🧠 Iniciar um quiz de conhecimentos gerais")
+async def quiz_slash(interaction: discord.Interaction):
+    """Comando para quiz de conhecimentos"""
+    perguntas = [
+        {
+            "pergunta": "Qual é o planeta mais próximo do Sol?",
+            "opcoes": ["A) Vênus", "B) Mercúrio", "C) Terra", "D) Marte"],
+            "resposta": "B",
+            "explicacao": "Mercúrio é o planeta mais próximo do Sol!"
+        },
+        {
+            "pergunta": "Quantos corações tem um polvo?",
+            "opcoes": ["A) 1", "B) 2", "C) 3", "D) 4"],
+            "resposta": "C",
+            "explicacao": "Os polvos têm 3 corações e sangue azul!"
+        },
+        {
+            "pergunta": "Qual é o maior planeta do sistema solar?",
+            "opcoes": ["A) Saturno", "B) Júpiter", "C) Netuno", "D) Urano"],
+            "resposta": "B",
+            "explicacao": "Júpiter é o maior planeta do nosso sistema solar!"
+        },
+        {
+            "pergunta": "Em que ano o homem pisou na Lua pela primeira vez?",
+            "opcoes": ["A) 1967", "B) 1968", "C) 1969", "D) 1970"],
+            "resposta": "C",
+            "explicacao": "Neil Armstrong pisou na Lua em 20 de julho de 1969!"
+        },
+        {
+            "pergunta": "Qual é o maior oceano do mundo?",
+            "opcoes": ["A) Atlântico", "B) Índico", "C) Ártico", "D) Pacífico"],
+            "resposta": "D",
+            "explicacao": "O Oceano Pacífico é o maior oceano do mundo!"
+        },
+        {
+            "pergunta": "Quantos ossos tem o corpo humano adulto?",
+            "opcoes": ["A) 196", "B) 206", "C) 216", "D) 226"],
+            "resposta": "B",
+            "explicacao": "O corpo humano adulto tem 206 ossos!"
+        },
+        {
+            "pergunta": "Qual é a velocidade da luz?",
+            "opcoes": ["A) 300.000 km/s", "B) 250.000 km/s", "C) 350.000 km/s", "D) 400.000 km/s"],
+            "resposta": "A",
+            "explicacao": "A luz viaja a aproximadamente 300.000 km/s no vácuo!"
+        }
+    ]
+    
+    import random
+    pergunta = random.choice(perguntas)
+    
+    embed = discord.Embed(
+        title="🧠 Quiz do KaBot",
+        description=f"**{pergunta['pergunta']}**",
+        color=0xe74c3c
+    )
+    
+    opcoes_texto = "\n".join(pergunta['opcoes'])
+    embed.add_field(
+        name="📋 Opções:",
+        value=opcoes_texto,
+        inline=False
+    )
+    
+    embed.set_footer(text="Responda com A, B, C ou D! Você tem 30 segundos.")
+    
+    await interaction.response.send_message(embed=embed)
+    
+    # Aguardar resposta do usuário
+    def check(m):
+        return m.author == interaction.user and m.channel == interaction.channel and m.content.upper() in ['A', 'B', 'C', 'D']
+    
+    try:
+        response = await bot.wait_for('message', check=check, timeout=30.0)
+        
+        if response.content.upper() == pergunta['resposta']:
+            result_embed = discord.Embed(
+                title="🎉 Parabéns!",
+                description=f"**Resposta correta!** ✅\n\n💡 **Explicação:** {pergunta['explicacao']}",
+                color=0x00ff00
+            )
+        else:
+            result_embed = discord.Embed(
+                title="❌ Não foi dessa vez!",
+                description=f"**Resposta correta:** {pergunta['resposta']}\n\n💡 **Explicação:** {pergunta['explicacao']}",
+                color=0xff0000
+            )
+        
+        await interaction.channel.send(embed=result_embed)
+        
+    except asyncio.TimeoutError:
+        timeout_embed = discord.Embed(
+            title="⏰ Tempo esgotado!",
+            description=f"**Resposta correta:** {pergunta['resposta']}\n\n💡 **Explicação:** {pergunta['explicacao']}",
+            color=0xffaa00
+        )
+        await interaction.channel.send(embed=timeout_embed)
 
 # COMANDOS ADMINISTRATIVOS (APENAS PARA KAZINHO)
 KAZINHO_ID = 857228143478571029
