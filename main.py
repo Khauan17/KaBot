@@ -448,7 +448,8 @@ async def memoria_slash(interaction: discord.Interaction, quantidade: discord.ap
 @bot.tree.command(name="noticias", description="📰 Buscar notícias frescas e interessantes")
 async def noticias_slash(interaction: discord.Interaction):
     """Buscar notícias manualmente"""
-    await interaction.response.send_message("🔍 Buscando notícias frescas...")
+    await interaction.response.defer()
+    await interaction.followup.send("🔍 Buscando notícias frescas...")
     await kabot.post_curated_news(interaction.channel)
 
 @bot.tree.command(name="ping", description="🏓 Verificar se o KaBot está respondendo bem")
