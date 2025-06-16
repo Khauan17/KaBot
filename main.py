@@ -1,4 +1,5 @@
-
+from keep_alive import keep_alive
+keep_alive()
 import discord
 from discord.ext import commands, tasks
 import os
@@ -1181,5 +1182,5 @@ scheduler_thread = Thread(target=run_scheduler, daemon=True)
 scheduler_thread.start()
 
 if __name__ == "__main__":
-    print("Iniciando KaBot...")
-    bot.run(DISCORD_TOKEN)
+    keep_alive()  # Isso inicia o servidor web
+    bot.run(os.getenv("DISCORD_TOKEN"))  # Use variáveis de ambiente!
