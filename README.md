@@ -109,8 +109,3 @@ KaBot/
 Este projeto é de código aberto. Use, edite e distribua à vontade (adicione sua licença se desejar).
 
 ⸻
-
-
----
-
-Se quiser, posso gerar o arquivo `.md` pronto para você colar ou subir direto. Deseja que eu te envie o arquivo também?
