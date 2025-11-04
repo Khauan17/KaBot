@@ -1,6 +1,7 @@
-discord.py
+# Dependências do KaBot
+discord.py>=2.3.0
 python-dotenv
-schedule
-supabase
 requests
-flask
+google-genai # Substituindo google-generativeai para a biblioteca oficial mais recente
+google-api-python-client
+supabase

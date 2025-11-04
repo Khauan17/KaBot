@@ -1,111 +1,53 @@
-# 🤖 KaBot
+# KaBot - Mega Update (v6.0)
 
-KaBot é um bot modular para Discord desenvolvido em Python com recursos de interação por texto, memória, radar de informações e manutenção automática. Ele é projetado para ser simples, expansível e funcional, podendo inclusive rodar em ambientes leves como o Termux (Android).
+Este é o KaBot, agora refatorado para uma arquitetura mais robusta, orientada a serviços e com funcionalidades de Inteligência Artificial aprimoradas, incluindo a capacidade de **visão (multimodalidade)**.
 
----
+## 🚀 Novidades da Mega Update (v6.0)
 
-## 📦 Requisitos
+*   **Arquitetura Limpa:** Código refatorado para o padrão de Serviços e Cogs, facilitando a manutenção e a adição de novas funcionalidades.
+*   **IA Multimodal (Visão):** A IA agora pode "ver" e analisar imagens anexadas em mensagens onde o bot é mencionado.
+*   **IA Inteligente com Ferramentas:** A IA pode decidir autonomamente quando usar ferramentas para buscar vídeos no YouTube ou GIFs no Tenor para enriquecer a interação.
+*   **Comandos de Barra (`/`):** Todos os comandos principais agora suportam comandos de barra, além do prefixo `!ka`.
+*   **Funcionalidades Preservadas:** Todos os comandos originais (`!meme`, `!jokenpo`, `!nasa`, `!gravar`, etc.) foram mantidos e aprimorados.
+*   **Novo Comando:** Adicionado o comando `!traduzir` (`/traduzir`) para tradução explícita via IA.
 
-- Python 3.10 ou superior
-- Conta e servidor no Discord
-- Token de bot (criado via [Discord Developer Portal](https://discord.com/developers/applications))
-- Variáveis `.env` (confidenciais)
-- Linux, Termux ou ambiente compatível (Replit opcional)
+## ⚙️ Setup
 
----
+1.  **Variáveis de Ambiente:** Certifique-se de que seu arquivo `.env` (copiado para a pasta `kabot_refactor`) esteja preenchido com as chaves de API necessárias (Discord, Gemini, Supabase, YouTube, Tenor, NASA). **Revogue e regenere** as chaves antigas, conforme o aviso de segurança.
+2.  **Instalar Dependências:**
+    ```bash
+    cd kabot_refactor
+    pip install -r requirements.txt
+    ```
+3.  **Rodar o Bot:**
+    ```bash
+    python main.py
+    ```
 
-## ⚙️ Instalação
+## 🤖 Comandos Principais
 
-### 🔧 1. Clone o repositório:
+Todos os comandos abaixo funcionam com o prefixo `!ka <comando>` ou como `/comando`.
 
-```bash
-git clone https://github.com/seunome/KaBot.git
-cd KaBot
+| Categoria | Comando | Descrição |
+| :--- | :--- | :--- |
+| **Inteligência Artificial** | `chat [pergunta]` | Converse com a IA. Suporta imagens anexadas. |
+| | `gravar [memória]` | Instrua a IA a gravar uma informação importante na sua memória de longo prazo (apenas para o criador). |
+| | `traduzir <origem-destino> <texto>` | Traduz um texto usando a IA (ex: `pt-en Olá`). |
+| **Utilidade** | `ping` | Verifica a latência do bot. |
+| | `info` / `sobre` | Mostra informações e tempo online do bot. |
+| | `ajuda` | Mostra este catálogo de comandos. |
+| | `somar <expressão>` | Faz cálculos matemáticos básicos. |
+| | `pergunta <pergunta>` | Responde a perguntas de sim ou não. |
+| | `curiosidade` | Conta uma curiosidade aleatória. |
+| **Diversão** | `meme` | Conta uma piada. |
+| | `gif [tema]` | Busca um GIF sobre um tema. |
+| | `jokenpo` / `ppt` | Joga pedra, papel ou tesoura. |
+| | `roleta` | Gira uma roleta de 1 a 100. |
+| | `abracar <membro>` | Dá um abraço em alguém. |
+| | `monkey <frequência>` | Ativa o Modo Macaco (repete mensagens a cada `frequência` mensagens). |
+| **APIs Externas** | `nasa` | Mostra a Imagem Astronômica do Dia (APOD) da NASA, traduzida pela IA. |
+| | `news [categoria]` | Busca a manchete de notícias, traduzida pela IA. |
 
-📦 2. Instale as dependências:
+## ⚠️ Aviso de Segurança
 
-pip install -r Requests.txt
-
-🔐 3. Configure o .env:
-
-Crie um arquivo chamado .env na raiz com o seguinte conteúdo:
-
-TOKEN=SEU_TOKEN_DO_DISCORD
-
-(Substitua SEU_TOKEN_DO_DISCORD pelo token real do seu bot.)
-
-⸻
-
-🚀 Execução
-
-🖥️ Em PC/Linux:
-
-python3 main.py
-
-ou
-
-./start_bot.sh
-
-📱 Em Android com Termux:
-	1.	Instale Python:
-
-pkg update
-pkg install python git
-
-	2.	Clone o projeto:
-
-git clone https://github.com/seunome/KaBot.git
-cd KaBot
-
-	3.	Instale as dependências e rode:
-
-pip install -r Requests.txt
-python main.py
-
-(Ou use ./start_bot.sh se desejar reiniciar automaticamente após erro.)
-
-⸻
-
-🧠 Funcionalidades
-	•	kabot/memoria.py: Armazena e recupera memórias/respostas do bot
-	•	kabot/chatbase.py: Comunicação com APIs externas (ex: IA)
-	•	kabot/radar.py: Radar de informações (provavelmente para pesquisas ou interações rápidas)
-	•	kabot/mensagem_sistema.py: Exibe mensagens padronizadas do sistema
-	•	kabot/conversar.py: Núcleo do sistema de conversação
-	•	keep_alive.py: Mantém o bot ativo em plataformas como Replit
-	•	Scripts .sh: Automatizam o início/reinício do bot (úteis em VPS/Termux)
-
-⸻
-
-🛠️ Estrutura do Projeto
-
-KaBot/
-├── kabot/                  # Módulos internos do bot
-│   ├── __init__.py
-│   ├── memoria.py
-│   ├── radar.py
-│   ├── mensagem_sistema.py
-│   ├── conversar.py
-│   └── chatbase.py
-├── keep_alive.py           # Manutenção online
-├── main.py                 # Ponto de entrada do bot
-├── start_bot.sh            # Início automático com loop
-├── reiniciar_bot.sh        # Reinício manual do bot
-├── Requests.txt            # Bibliotecas necessárias
-├── README.md               # Este arquivo
-└── .env                    # (Ignorado no Git) Token do bot
-
-
-⸻
-
-📌 Observações
-	•	Se rodar no Termux, mantenha o app aberto ou use nohup para manter rodando em segundo plano.
-	•	O chatbase.py parece usar alguma API de IA — se necessário, inclua instruções para adicionar essa chave também ao .env.
-
-⸻
-
-📃 Licença
-
-Este projeto é de código aberto. Use, edite e distribua à vontade (adicione sua licença se desejar).
-
-⸻
+Você publicou publicamente seu Token do Discord e chaves de API. **É CRÍTICO que você REVOGUE e REGENERE** essas chaves nos respectivos painéis de controle (Discord Developer Portal, Google AI Studio, Supabase, etc.) e atualize o arquivo `.env` com as novas chaves. **NUNCA** compartilhe essas chaves publicamente.
